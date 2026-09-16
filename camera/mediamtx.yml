@@ -1,0 +1,15 @@
+logLevel: info
+
+rtsp: yes
+rtspAddress: 127.0.0.1:1111
+rtspTransports: [tcp]
+
+rtmp: no
+hls: no
+webrtc: no
+srt: no
+moq: no
+
+paths:
+  camera:
+    source: publisher

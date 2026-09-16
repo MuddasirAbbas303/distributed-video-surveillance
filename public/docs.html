@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Architecture and setup documentation for the Distributed Video Surveillance System">
+    <title>System Documentation · Distributed Video Surveillance</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Distributed Video Surveillance</span>
+      </a>
+      <a class="docs-link" href="/">Open web client</a>
+    </header>
+
+    <main class="docs-shell">
+      <header class="docs-hero">
+        <div class="eyebrow">Mandatory solution</div>
+        <h1>System documentation</h1>
+        <p>An implementation guide to the video, authentication, control, and authorization flows.</p>
+      </header>
+
+      <nav class="docs-nav" aria-label="Documentation sections">
+        <a href="#architecture">Architecture</a>
+        <a href="#technologies">Technologies</a>
+        <a href="#setup">Setup</a>
+        <a href="#decisions">Decisions</a>
+        <a href="#rbac">Bonus A · RBAC</a>
+        <a href="#log-integrity">HMAC log integrity</a>
+        <a href="#ambiguities">Interpretations</a>
+        <a href="#limitations">Limitations</a>
+      </nav>
+
+      <section id="architecture" class="docs-section">
+        <h2>Architecture</h2>
+        <p>The camera process owns the synthetic RTSP source, Server A owns video processing and delivery, and Server B owns user authentication, browser commands, and session state.</p>
+        <pre class="architecture-diagram" aria-label="Component interaction diagram"><code>Camera process
+  FFmpeg synthetic H.264 publisher
+          │ RTSP publish
+          ▼
+  MediaMTX at rtsp://127.0.0.1:1111/camera
+          │ RTSP consume
+          ▼
+Server A — Video Server
+  FFmpeg stream copy → rolling HLS files
+          │                           ▲
+          │ protected HLS             │ persistent authenticated WebSocket
+          │ Bearer JWT                │ commands + session synchronization
+          ▼                           │
+Web Client ───── authenticated WS ──► Server B
+  hls.js                            Auth / Management
+  login form ───── POST /auth/login ──►│
+  command console                    │ users.json + sessions + commands.log</code></pre>
+
+        <div class="docs-grid">
+          <article>
+            <h3>Camera flow</h3>
+            <p>FFmpeg generates a changing test pattern and publishes H.264 to MediaMTX. Both child processes are supervised and automatically restarted after unexpected exits.</p>
+          </article>
+          <article>
+            <h3>Video flow</h3>
+            <p>Server A's FFmpeg reads MediaMTX over RTSP/TCP and stream-copies H.264 into approximately one-second MPEG-TS HLS segments. hls.js requests the playlist and every segment with a Bearer JWT.</p>
+          </article>
+          <article>
+            <h3>Authentication flow</h3>
+            <p>The browser posts credentials to Server B. Server B verifies a bcrypt password hash, creates an in-memory session, signs a one-hour JWT, and synchronizes the session to Server A.</p>
+          </article>
+          <article>
+            <h3>Control and authorization</h3>
+            <p>The browser sends commands over an authenticated WebSocket. Server B forwards video commands over its persistent Server A socket; that same connection carries full session snapshots, activations, and revocations.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="rbac" class="docs-section">
+        <h2>Bonus A: role-based access control</h2>
+        <p>Server B—not the browser—enforces command permissions from the role already verified against the active session. Unknown roles fail closed for control commands.</p>
+        <div class="table-scroll">
+          <table class="permission-table">
+            <thead><tr><th>Role</th><th>Video</th><th>GET_STATUS</th><th>START_VIDEO</th><th>STOP_VIDEO</th><th>LOGOUT</th></tr></thead>
+            <tbody>
+              <tr><th>viewer</th><td>Allowed</td><td>Allowed</td><td>Forbidden</td><td>Forbidden</td><td>Allowed</td></tr>
+              <tr><th>operator</th><td>Allowed</td><td>Allowed</td><td>Allowed</td><td>Allowed</td><td>Allowed</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>A forbidden command is logged, receives a correlated <code>Forbidden</code> response, and does not close the viewer's WebSocket or reach Server A. The <code>admin</code> account uses the existing operator role.</p>
+      </section>
+
+      <section id="technologies" class="docs-section">
+        <h2>Technologies used</h2>
+        <dl class="technology-list">
+          <div><dt>Node.js</dt><dd>Asynchronous, network-oriented runtime with cross-platform process APIs.</dd></div>
+          <div><dt>Express</dt><dd>Small HTTP APIs, protected HLS middleware, and static client delivery.</dd></div>
+          <div><dt>ws</dt><dd>Browser management and persistent inter-server WebSocket communication.</dd></div>
+          <div><dt>FFmpeg</dt><dd>Synthetic video generation and H.264-to-HLS repackaging.</dd></div>
+          <div><dt>MediaMTX</dt><dd>Lightweight RTSP server for the simulated camera endpoint.</dd></div>
+          <div><dt>HLS</dt><dd>Broad browser delivery using short rolling media segments.</dd></div>
+          <div><dt>hls.js</dt><dd>Media Source playback while attaching authorization to every request.</dd></div>
+          <div><dt>JWT</dt><dd>Signed, expiring identity claims independently verifiable by both servers.</dd></div>
+          <div><dt>bcrypt</dt><dd>One-way password hashing for local user records.</dd></div>
+          <div><dt>Node.js crypto</dt><dd>Built-in HMAC-SHA256 integrity protection for the command audit chain.</dd></div>
+          <div><dt>JSON / NDJSON</dt><dd>User/configuration data, socket messages, and append-only command records.</dd></div>
+        </dl>
+      </section>
+
+      <section id="setup" class="docs-section">
+        <h2>Setup instructions</h2>
+        <h3>Prerequisites</h3>
+        <ul>
+          <li>Node.js LTS and npm</li>
+          <li>FFmpeg with H.264 encoding support</li>
+          <li>MediaMTX</li>
+        </ul>
+
+        <h3>Install and configure</h3>
+        <pre><code>npm install
+cp .env.example .env
+npm run create-users</code></pre>
+        <p>Edit <code>.env</code> with strong, different <code>JWT_SECRET</code>, <code>INTERNAL_WS_SECRET</code>, and <code>LOG_HMAC_SECRET</code> values. Set <code>FFMPEG_PATH</code> and <code>MEDIAMTX_PATH</code> to executable names on <code>PATH</code> or full platform-appropriate paths. Keep <code>WEB_ORIGIN</code> aligned with the Server B browser origin.</p>
+
+        <h3>Verify the command log</h3>
+        <pre><code>npm run verify:command-log</code></pre>
+
+        <h3>Run in three terminals</h3>
+        <pre><code>npm run start:camera
+npm run start:server-a
+npm run start:server-b</code></pre>
+        <p>Then open <a href="http://127.0.0.1:3002/">http://127.0.0.1:3002/</a>. On Windows 11 x64, install native x64 FFmpeg and MediaMTX distributions and configure their executable paths in <code>.env</code>; application code does not assume a filename suffix or Unix directory layout.</p>
+      </section>
+
+      <section id="log-integrity" class="docs-section">
+        <div class="eyebrow">Security bonus</div>
+        <h2>HMAC command-log integrity</h2>
+        <p>Every protected NDJSON record contains <code>previousHash</code> and <code>hash</code>. The first uses <code>GENESIS</code>; every later record links to its predecessor. The HMAC-SHA256 input is deterministic JSON ordered as <code>timestamp</code>, <code>user</code>, <code>message</code>, <code>requestId</code>, <code>status</code>, <code>error</code>, and <code>previousHash</code>, with absent optional values represented as <code>null</code>.</p>
+        <p>Server B verifies every existing entry before it starts listening and serializes each compute-and-append operation. Corruption aborts startup. If an audit append fails while handling a command, the request stops and an unlogged management action is not forwarded. The legacy development log is archived as <code>commands.pre-hmac.log</code> and is not claimed to be protected.</p>
+      </section>
+
+      <section id="decisions" class="docs-section">
+        <h2>Architectural decisions</h2>
+        <ul class="decision-list">
+          <li><strong>WebSocket between servers:</strong> satisfies the non-REST requirement, carries correlated commands and session events, and reconnects automatically.</li>
+          <li><strong>HLS delivery:</strong> is browser-compatible and operationally straightforward; hls.js makes authenticated cross-origin media requests possible.</li>
+          <li><strong>H.264 stream copy:</strong> avoids a second encode, reducing CPU usage and delay.</li>
+          <li><strong>One-second segments:</strong> balance latency, request overhead, and reliable playback. hls.js targets roughly two segments behind live.</li>
+          <li><strong>Global <code>videoRunning</code> state:</strong> the assignment defines one camera and global START/STOP commands, so one in-memory delivery flag is sufficient.</li>
+          <li><strong>STOP as a delivery gate:</strong> returns HTTP 503 for authorized HLS requests while the camera, RTSP source, FFmpeg, and segment generation continue unchanged.</li>
+          <li><strong>JWT plus <code>jti</code>:</strong> the signature proves token integrity; the synchronized session identifier enables immediate per-session logout.</li>
+          <li><strong>Independent Server A validation:</strong> Server A verifies JWT cryptography and local active-session state without a REST dependency on Server B.</li>
+          <li><strong>Fail closed:</strong> Server A returns HTTP 503 when session state is not synchronized, preferring revocation safety over video availability.</li>
+          <li><strong>In-memory sessions:</strong> keep the mandatory prototype small; restarting Server B intentionally invalidates all sessions.</li>
+          <li><strong>Cross-platform spawning:</strong> executable paths are configurable and child processes use argument arrays with <code>shell: false</code>.</li>
+          <li><strong>No C++:</strong> no mandatory requirement needs a native addon; C++ belongs only to an optional bonus and is not used.</li>
+        </ul>
+      </section>
+
+      <section id="ambiguities" class="docs-section">
+        <h2>Specification ambiguities and chosen interpretations</h2>
+        <ul>
+          <li>“Stop video” is interpreted as stopping delivery, not stopping production, because the source and related processes must continue running.</li>
+          <li>Authorization must support immediate logout, so JWT verification is combined with synchronized active-session state rather than signature validation alone.</li>
+          <li>The video state is global because only one camera and no per-user stream state are specified.</li>
+          <li>The mandatory assignment defines roles but no permission matrix. Bonus A supplies the explicit viewer/operator command matrix while preserving video access for both.</li>
+          <li>A changing test-pattern counter satisfies the requirement for visible motion/time without relying on an optional FFmpeg text filter.</li>
+        </ul>
+      </section>
+
+      <section id="limitations" class="docs-section">
+        <h2>Limitations</h2>
+        <ul>
+          <li>Typical local HLS latency is approximately 2–4 seconds, with about 3 seconds expected.</li>
+          <li>Sessions and the global video state are in memory; restarting Server B invalidates existing sessions.</li>
+          <li>Operators control one global stream; there is no per-camera or per-user video state.</li>
+          <li>Both servers share an HS256 JWT signing secret and an internal WebSocket service secret.</li>
+          <li>The local prototype uses HTTP and WebSocket without TLS.</li>
+          <li>There are no refresh tokens or persistent database.</li>
+          <li>The browser WebSocket authenticates with a JWT query parameter because browser WebSocket APIs cannot set an Authorization header.</li>
+          <li><code>commands.log</code> has no rotation. HMAC chaining detects record modification, middle deletion, and reordering, but does not prevent tampering.</li>
+          <li>An attacker who also obtains <code>LOG_HMAC_SECRET</code> can recalculate the chain. Complete-file deletion cannot be cryptographically detected without an external trusted checkpoint; production should use centralized append-only/auditable storage.</li>
+          <li>Asymmetric encryption, C++/N-API, and TPM integration are not implemented.</li>
+          <li>Windows 11 x64 compatibility is designed and source-reviewed, but runtime validation was performed on macOS Apple Silicon and remains pending on Windows.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>See README.md for the concise operator guide and SOLUTION.md for detailed design rationale.</footer>
+  </body>
+</html>

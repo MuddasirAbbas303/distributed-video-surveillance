@@ -1,0 +1,38 @@
+{
+  "name": "distributed-video-surveillance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A cross-platform distributed video surveillance coding assignment.",
+  "main": "server-b/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start:camera": "node camera/camera-simulator.js",
+    "start:server-a": "node server-a/index.js",
+    "start:server-b": "node server-b/index.js",
+    "start:web": "node server-b/index.js",
+    "create-users": "node scripts/create-users.js",
+    "test:control": "node scripts/test-control-channel.js",
+    "test:client-ws": "node scripts/test-client-websocket.js",
+    "test:command-log": "node scripts/test-command-log-integrity.js",
+    "test:command-log-live": "node scripts/test-command-log-live.js",
+    "test:command-log-startup": "node scripts/test-command-log-startup.js",
+    "test:command-log-tamper": "node scripts/test-command-log-tampering.js",
+    "test:rbac": "node scripts/test-rbac.js",
+    "test:rbac-live": "node scripts/test-rbac-live.js",
+    "test:step7-live": "node scripts/test-step7-live.js",
+    "test:step7-unit": "node scripts/test-step7-unit.js",
+    "test:step8-static": "node scripts/test-step8-static.js",
+    "verify:command-log": "node scripts/verify-command-log.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "hls.js": "^1.7.3",
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.18.3"
+  }
+}

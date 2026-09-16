@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Authenticated web client for the Distributed Video Surveillance System">
+    <title>Distributed Video Surveillance</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script defer src="/vendor/hls.min.js"></script>
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Distributed Video Surveillance home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Distributed Video Surveillance</span>
+      </a>
+      <a class="docs-link" href="/docs">System documentation</a>
+    </header>
+
+    <main class="page-shell">
+      <section id="login-view" class="login-panel" aria-labelledby="login-title">
+        <div class="eyebrow">Secure operations console</div>
+        <h1 id="login-title">Sign in to monitor the stream</h1>
+        <p class="intro">Authenticate through the management server to open protected video and controls.</p>
+
+        <form id="login-form" class="login-form">
+          <label for="login">Login</label>
+          <input id="login" name="login" type="text" autocomplete="username" maxlength="100" required autofocus>
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required>
+
+          <button id="login-button" type="submit">Sign in</button>
+          <p id="login-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section id="main-view" class="workspace" aria-labelledby="workspace-title" hidden>
+        <div class="workspace-heading">
+          <div>
+            <div class="eyebrow">Live operations</div>
+            <h1 id="workspace-title">Camera overview</h1>
+          </div>
+          <dl class="identity">
+            <div><dt>User</dt><dd id="current-user">—</dd></div>
+            <div><dt>Role</dt><dd id="current-role">—</dd></div>
+          </dl>
+        </div>
+
+        <div class="status-row" aria-label="Connection status">
+          <div class="status-item">
+            <span class="status-label">Management</span>
+            <span id="socket-status" class="status-badge" data-tone="neutral">Disconnected</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Video</span>
+            <span id="video-status" class="status-badge" data-tone="neutral">Not started</span>
+          </div>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="video-card" aria-labelledby="video-title">
+            <div class="card-heading">
+              <div>
+                <h2 id="video-title">Camera 01</h2>
+                <p>RTSP source delivered as protected low-latency HLS</p>
+              </div>
+              <span class="live-label">Live</span>
+            </div>
+            <div class="video-frame">
+              <video id="video" controls autoplay muted playsinline></video>
+              <div id="video-message" class="video-message" role="status" aria-live="polite">Connecting to video…</div>
+            </div>
+          </section>
+
+          <section class="console-card" aria-labelledby="console-title">
+            <div class="card-heading">
+              <div>
+                <h2 id="console-title">Management console</h2>
+                <p>Type START_VIDEO, STOP_VIDEO, GET_STATUS, or LOGOUT</p>
+                <p id="role-hint" class="role-hint"></p>
+              </div>
+            </div>
+
+            <div id="console-output" class="console-output" role="log" aria-live="polite" aria-label="Command history"></div>
+
+            <form id="command-form" class="command-form">
+              <label class="visually-hidden" for="command-input">Management command</label>
+              <span class="prompt" aria-hidden="true">&gt;</span>
+              <input id="command-input" type="text" maxlength="100" autocomplete="off" spellcheck="false" placeholder="GET_STATUS" disabled>
+              <button id="send-button" type="submit" disabled>Send</button>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer>Local prototype · Authentication and command activity are handled by Server B</footer>
+  </body>
+</html>
