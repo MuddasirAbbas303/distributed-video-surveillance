@@ -1,0 +1,17 @@
+node_modules/
+.env
+commands.log
+commands.pre-hmac.log
+
+runtime/hls/*
+!runtime/hls/.gitkeep
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+npm-debug.log*
