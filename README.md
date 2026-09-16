@@ -732,16 +732,6 @@ For quick interview revision after this walkthrough, use [FINAL_REVIEW.md](FINAL
 | **HMAC** | Keyed-Hash Message Authentication Code. A secret-key hash used here to make audit-log modification, middle deletion, or reordering detectable. |
 | **bcrypt** | A password-hashing algorithm deliberately designed to be costly to guess. The project stores bcrypt hashes, never plaintext passwords. |
 
-## Screenshots
-
-![Login screen](docs/screenshots/login.png)
-
-![Live operator view](docs/screenshots/main-video.png)
-
-![START and STOP command history](docs/screenshots/command-console.png)
-
-![System documentation](docs/screenshots/docs-page.png)
-
 ## Security and limitations
 
 - Typical local HLS latency is approximately 2–4 seconds.
